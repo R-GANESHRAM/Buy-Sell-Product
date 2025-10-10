@@ -9,7 +9,7 @@ export class CartController {
     @repository(ProductsRepository) public productRepo: ProductsRepository,
   ) {}
 
-  // 1. Create Cart for Buyer
+  // 1. Create Cart for Buyerfkolp;
   @post('/buyers/{buyerId}/cart')
   async createCart(@param.path.number('buyerId') buyerId: number) {
     const existing = await this.cartRepo.findOne({
@@ -42,7 +42,7 @@ export class CartController {
   }
 
   // 3. View Cart
-  @get('/created_at":"08/10/2025"created_at":"08/10/2025")
+  @get('/cart/{cartId}')
   async viewCart(@param.path.number('cartId') cartId: number) {
     const items = await this.cartItemRepo.find({where: {cart_id: cartId}});
     return {cartId, items};

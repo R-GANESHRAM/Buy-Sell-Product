@@ -1,9 +1,9 @@
-import {ApplicationConfig, UserApplication} from './application';
+import {ApplicationConfig, GatewayApplication} from './application';
 
 export * from './application';
 
 export async function main(options: ApplicationConfig = {}) {
-  const app = new UserApplication(options);
+  const app = new GatewayApplication(options);
   await app.boot();
   await app.start();
 
@@ -18,7 +18,7 @@ if (require.main === module) {
   // Run the application
   const config = {
     rest: {
-      port: +(process.env.PORT ?? 3003),
+      port: +(process.env.PORT ?? 3000),
       host: process.env.HOST || '127.0.0.1',
       // The `gracePeriodForClose` provides a graceful close for http/https
       // servers with keep-alive clients. The default value is `Infinity`
