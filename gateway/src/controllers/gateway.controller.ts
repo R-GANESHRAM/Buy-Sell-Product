@@ -1,8 +1,13 @@
-import {post,  response, get, put, requestBody, param, del ,HttpErrors} from '@loopback/rest';
+import {post,Response,response,get,put,requestBody,param,del,HttpErrors,  RestBindings,} from '@loopback/rest';
+import {inject} from '@loopback/core';
 import fetch from 'node-fetch';
 
 export class GatewayController {
-  // USER MODULE
+  constructor(
+    @inject(RestBindings.Http.RESPONSE) private res: Response,
+  ) {}
+
+  // USER MODULE 
   @post('/users')
   async createUser(@requestBody() userData: object) {
     const response = await fetch('http://localhost:3001/users', {
@@ -25,13 +30,11 @@ export class GatewayController {
     return response.json();
   }
 
-
-  // SELLER MODULE
-  // Create product (seller only)
+  //SELLER MODULE
   @post('/seller/products')
   async createSellerProduct(@requestBody() productData: any) {
     if (!productData.seller_id)
-      throw new Error('seller_id is required');
+      throw new HttpErrors.BadRequest('seller_id is required');
 
     productData.created_at = new Date().toISOString();
 
@@ -44,7 +47,6 @@ export class GatewayController {
     return response.json();
   }
 
-  // Update product details (seller only)
   @put('/seller/products/{id}')
   async updateSellerProduct(
     @param.path.number('id') id: number,
@@ -59,19 +61,27 @@ export class GatewayController {
     return response.json();
   }
 
-  // List all products by a specific seller
   @get('/seller/products/{id}')
   async listSellerProducts(@param.path.number('id') id: number) {
     const response = await fetch(`http://localhost:3001/seller/products/${id}`);
     return response.json();
   }
 
-  // BUYING MODULE (Cart)
+  @get('/products')
+  async listProducts() {
+    const response = await fetch('http://localhost:3001/products');
+    return response.json();
+  }
+
+  // BUYER MODULE 
+
   @post('/buyers/{buyerId}/cart')
   async createCart(@param.path.number('buyerId') buyerId: number) {
     try {
-      const response = await fetch(`http://localhost:3002/buyers/${buyerId}/cart`,
-        {method: 'POST', headers: {'Content-Type': 'application/json'}},);
+      const response = await fetch(`http://localhost:3002/buyers/${buyerId}/cart`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+      });
 
       if (!response.ok) {
         const error = await response.text();
@@ -86,22 +96,17 @@ export class GatewayController {
     }
   }
 
-  
-   //Add Item to Cart
   @post('/cart/{cartId}/items')
   async addItemToCart(
     @param.path.number('cartId') cartId: number,
     @requestBody() payload: {product_id: number; quantity: number},
   ) {
     try {
-      const response = await fetch(
-        `http://localhost:3002/cart/${cartId}/items`,
-        {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify(payload),
-        },
-      );
+      const response = await fetch(`http://localhost:3002/cart/${cartId}/items`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload),
+      });
 
       if (!response.ok) {
         const error = await response.text();
@@ -116,8 +121,6 @@ export class GatewayController {
     }
   }
 
- 
-   //View Cart Items
   @get('/cart/{cartId}')
   async viewCart(@param.path.number('cartId') cartId: number) {
     try {
@@ -138,7 +141,8 @@ export class GatewayController {
     }
   }
 
-  // BILLING MODULE
+  //  BILLING MODULE
+
   @post('/billing/{cartId}')
   async generateBill(@param.path.number('cartId') cartId: number) {
     try {
@@ -162,10 +166,9 @@ export class GatewayController {
   })
   async exportBillingCSV(@param.path.number('billingId') billingId: number) {
     try {
-      const response = await fetch(
-       `http://localhost:3003/billing/${billingId}/csv,
-        {method: 'GET'},
-      `);
+      const response = await fetch(`http://localhost:3003/billing/${billingId}/csv`, {
+        method: 'GET',
+      });
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -173,12 +176,42 @@ export class GatewayController {
       }
 
       const csvData = await response.text();
-
-      // Directly return CSV data to client
       return csvData;
     } catch (error) {
       console.error('Error fetching CSV from billing service:', error);
       throw new HttpErrors.InternalServerError('Failed to export CSV via gateway');
     }
   }
+
+  @get('/report/pdf')
+  @response(200, {
+    description: 'PDF Transaction Report',
+    content: {'application/pdf': {schema: {type: 'string', format: 'binary'}}},
+  })
+  async generatedReport(
+    @param.query.string('start_time') start_time: string,
+    @param.query.string('end_time') end_time: string,
+  ) {
+    try {
+      const url = `http://localhost:3003/report/pdf?start_time=${start_time}&end_time=${end_time}`;
+
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new HttpErrors.BadRequest(`Gateway Service Error: ${errorText}`);
+      }
+
+      const buffer = await response.arrayBuffer();
+
+      this.res.contentType('application/pdf');
+      this.res.send(Buffer.from(buffer));
+      return this.res;
+    } catch (error) {
+      console.error('Error fetching PDF from Gateway:', error);
+      throw new HttpErrors.InternalServerError('Failed to fetch PDF via gateway');
+    }
+    
+  }
+  
 }
